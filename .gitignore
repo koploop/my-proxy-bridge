@@ -10,3 +10,4 @@ Signing-Config-ext.xcconfig
 
 # Local signing materials (certificates, profiles, passwords) - never commit
 cer/
+token.txt
