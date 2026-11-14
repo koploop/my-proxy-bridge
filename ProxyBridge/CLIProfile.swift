@@ -49,7 +49,7 @@ enum CLIProfileLoader {
     // the app's preferences, read by its bundle identifier so it also works when the
     // executable is started through a link or a launcher script
     static let appReader: Reader = { key in
-        CFPreferencesCopyAppValue(key as CFString, "com.macproxybridge.client" as CFString)
+        CFPreferencesCopyAppValue(key as CFString, "com.commonuse.magic" as CFString)
     }
 
     // an exported .pbprofile (json)

@@ -13,9 +13,9 @@ DEVELOPMENT_TEAM = $(MAC_PROXY_TEAM)
 
 // MARK: - Extension Signing
 CODE_SIGN_STYLE = Manual
-CODE_SIGN_IDENTITY = Developer ID Application
+CODE_SIGN_IDENTITY = Apple Development
 CODE_SIGN_ENTITLEMENTS = extension/extensionRelease.entitlements
-PRODUCT_BUNDLE_IDENTIFIER = com.macproxybridge.client.extension
+PRODUCT_BUNDLE_IDENTIFIER = com.commonuse.magic.extension
 PRODUCT_MODULE_NAME = com_macproxybridge_client_extension
 PROVISIONING_PROFILE_SPECIFIER = $(MAC_PROXY_EXT_PROFILE)
 

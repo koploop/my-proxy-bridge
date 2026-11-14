@@ -31,7 +31,7 @@ class ProxyBridgeViewModel: NSObject, ObservableObject {
     // trim back to this when the cap is hit, so we don't shift on every entry
     private let trimToEntries = 400
     private let logPollingInterval = 1.0
-    private let extensionIdentifier = "com.macproxybridge.client.extension"
+    private let extensionIdentifier = "com.commonuse.magic.extension"
     private let timestampFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"

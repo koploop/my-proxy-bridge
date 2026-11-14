@@ -100,7 +100,7 @@ final class DNSMapStore {
 
     private func removeLegacyFile() {
         guard let url = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.macproxybridge.client")?
+            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.commonuse.magic")?
             .appendingPathComponent("dnsmap.json") else { return }
         try? FileManager.default.removeItem(at: url)
     }

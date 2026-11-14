@@ -13,9 +13,9 @@ DEVELOPMENT_TEAM = $(MAC_PROXY_TEAM)
 
 // MARK: - Main App Signing (ProxyBridge)
 CODE_SIGN_STYLE = Manual
-CODE_SIGN_IDENTITY = Developer ID Application
+CODE_SIGN_IDENTITY = Apple Development
 CODE_SIGN_ENTITLEMENTS = ProxyBridge/ProxyBridgeRelease.entitlements
-PRODUCT_BUNDLE_IDENTIFIER = com.macproxybridge.client
+PRODUCT_BUNDLE_IDENTIFIER = com.commonuse.magic
 PRODUCT_MODULE_NAME = ProxyBridge
 PRODUCT_NAME = ProxyBridge
 PROVISIONING_PROFILE_SPECIFIER = $(MAC_PROXY_APP_PROFILE)

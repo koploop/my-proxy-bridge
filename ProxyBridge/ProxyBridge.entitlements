@@ -31,7 +31,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.macproxybridge.client</string>
+		<string>group.com.commonuse.magic</string>
 	</array>
 	<key>com.apple.security.files.bookmarks.app-scope</key>
 	<true/>

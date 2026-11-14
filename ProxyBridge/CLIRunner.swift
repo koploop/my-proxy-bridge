@@ -7,8 +7,8 @@ import SystemExtensions
 // (see main.swift). it does what the GUI does to get traffic redirected, without a window:
 // activate the system extension, set up the tunnel, send the profile, and clean up on exit.
 enum CLI {
-    static let bundleIdentifier = "com.macproxybridge.client"
-    static let extensionIdentifier = "com.macproxybridge.client.extension"
+    static let bundleIdentifier = "com.commonuse.magic"
+    static let extensionIdentifier = "com.commonuse.magic.extension"
     static let maxProfileBytes = 4 * 1024 * 1024
     static var runner: CLIRunner?
     private static var lockDescriptor: Int32 = -1

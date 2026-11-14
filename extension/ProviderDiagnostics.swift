@@ -6,10 +6,10 @@ import os.log
 //
 // The extension used to log nothing about its own life cycle, so when macOS started it and stopped it
 // again within milliseconds (issue #282) there was no way to tell why. Every line goes to the unified
-// log (Console.app, or `log show --predicate 'subsystem == "com.macproxybridge.client.extension"'`).
+// log (Console.app, or `log show --predicate 'subsystem == "com.commonuse.magic.extension"'`).
 // Never put credentials, host names or other traffic details in a message here.
 enum ProviderDiagnostics {
-    private static let osLog = OSLog(subsystem: "com.macproxybridge.client.extension", category: "provider")
+    private static let osLog = OSLog(subsystem: "com.commonuse.magic.extension", category: "provider")
 
     static func note(_ message: String, error: Bool = false) {
         os_log("%{public}@", log: osLog, type: error ? .error : .default, message)

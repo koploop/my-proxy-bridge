@@ -5,8 +5,8 @@
 ## 构建与安装
 
 1. 使用 Xcode 26 或更新版本打开 `ProxyBridge.xcodeproj`。应用最低支持 macOS 13。
-2. 为主应用 `com.macproxybridge.client` 和系统扩展 `com.macproxybridge.client.extension` 准备对应的签名与描述文件。两个目标使用同一 Apple 开发团队，均需授权 Network Extension，主应用还需 System Extension 安装权限。若更换 Bundle ID，同步修改扩展标识和 App Group。
-3. 使用 Release 配置构建。可通过下列命令传入团队 ID 和两个 Developer ID 描述文件的名称。
+2. 为主应用 `com.commonuse.magic` 和系统扩展 `com.commonuse.magic.extension` 准备对应的签名与描述文件。两个目标使用同一 Apple 开发团队，均需授权 Network Extension，主应用还需 System Extension 安装权限。当前使用 Apple Development 开发证书 + 包含目标 Mac UDID 的开发描述文件签名，无需公证。若更换 Bundle ID，同步修改扩展标识和 App Group。
+3. 使用 Release 配置构建。CI（GitHub Actions）从 secrets 生成 `Signing-Config-app/ext.xcconfig`；本地可用下列命令传入团队 ID 和两个描述文件名称。
 
    ```sh
    xcodebuild -project ProxyBridge.xcodeproj -scheme ProxyBridge -configuration Release \

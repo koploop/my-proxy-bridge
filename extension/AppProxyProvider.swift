@@ -830,7 +830,7 @@ class AppProxyProvider: NETransparentProxyProvider {
         let processPath = metaData.sourceAppSigningIdentifier
         
         // never proxy our own traffic, it would loop
-        if processPath == "com.macproxybridge.client" || processPath == "com.macproxybridge.client.extension" {
+        if processPath == "com.commonuse.magic" || processPath == "com.commonuse.magic.extension" {
             return false
         }
 
@@ -904,7 +904,7 @@ class AppProxyProvider: NETransparentProxyProvider {
         let processName = getProcessName(from: metaData)
         let displayName = processName ?? processPath
         
-        if processPath == "com.macproxybridge.client" || processPath == "com.macproxybridge.client.extension" {
+        if processPath == "com.commonuse.magic" || processPath == "com.commonuse.magic.extension" {
             return false
         }
         

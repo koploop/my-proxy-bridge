@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		8466A1E92EC63C5600A8C2E5 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8466A1E82EC63C5600A8C2E5 /* NetworkExtension.framework */; };
-		8466A1F32EC63C5600A8C2E5 /* com.macproxybridge.client.extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = 8466A1E62EC63C5600A8C2E5 /* com.macproxybridge.client.extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8466A1F32EC63C5600A8C2E5 /* com.commonuse.magic.extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = 8466A1E62EC63C5600A8C2E5 /* com.commonuse.magic.extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,7 +28,7 @@
 			dstPath = "$(SYSTEM_EXTENSIONS_FOLDER_PATH)";
 			dstSubfolderSpec = 16;
 			files = (
-				8466A1F32EC63C5600A8C2E5 /* com.macproxybridge.client.extension.systemextension in Embed System Extensions */,
+				8466A1F32EC63C5600A8C2E5 /* com.commonuse.magic.extension.systemextension in Embed System Extensions */,
 			);
 			name = "Embed System Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -39,7 +39,7 @@
 		1B7672902F421AB400B323D6 /* Signing-Config-app.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Signing-Config-app.xcconfig"; sourceTree = "<group>"; };
 		1B7672932F421ABA00B323D6 /* Signing-Config-ext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Signing-Config-ext.xcconfig"; sourceTree = "<group>"; };
 		8466A1D32EC63B9400A8C2E5 /* ProxyBridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProxyBridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		8466A1E62EC63C5600A8C2E5 /* com.macproxybridge.client.extension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = com.macproxybridge.client.extension.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
+		8466A1E62EC63C5600A8C2E5 /* com.commonuse.magic.extension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = com.commonuse.magic.extension.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 		8466A1E82EC63C5600A8C2E5 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		846F78F82F14204F00C94754 /* Signing-Config-ext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Signing-Config-ext.xcconfig"; sourceTree = "<group>"; };
 		84AFF4662F23CAC8007CF0B0 /* Signing-Config-app.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Signing-Config-app.xcconfig"; sourceTree = "<group>"; };
@@ -112,7 +112,7 @@
 			isa = PBXGroup;
 			children = (
 				8466A1D32EC63B9400A8C2E5 /* ProxyBridge.app */,
-				8466A1E62EC63C5600A8C2E5 /* com.macproxybridge.client.extension.systemextension */,
+				8466A1E62EC63C5600A8C2E5 /* com.commonuse.magic.extension.systemextension */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -171,7 +171,7 @@
 			packageProductDependencies = (
 			);
 			productName = extension;
-			productReference = 8466A1E62EC63C5600A8C2E5 /* com.macproxybridge.client.extension.systemextension */;
+			productReference = 8466A1E62EC63C5600A8C2E5 /* com.commonuse.magic.extension.systemextension */;
 			productType = "com.apple.product-type.system-extension";
 		};
 /* End PBXNativeTarget section */
@@ -386,7 +386,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ProxyBridge/ProxyBridge.entitlements;
-				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -415,9 +415,9 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MAC_PROXY_ICLOUD_CONTAINER = iCloud.com.macproxybridge.client;
+				MAC_PROXY_ICLOUD_CONTAINER = iCloud.com.commonuse.magic;
 				MARKETING_VERSION = 4.1.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.macproxybridge.client;
+				PRODUCT_BUNDLE_IDENTIFIER = com.commonuse.magic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -463,7 +463,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MAC_PROXY_ICLOUD_CONTAINER = iCloud.com.macproxybridge.client;
+				MAC_PROXY_ICLOUD_CONTAINER = iCloud.com.commonuse.magic;
 				MARKETING_VERSION = 4.1.2;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -479,7 +479,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = extension/extension.entitlements;
-				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = "";
@@ -505,7 +505,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 4.1.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.macproxybridge.client.extension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.commonuse.magic.extension;
 				PRODUCT_NAME = "$(inherited)";
 				REGISTER_APP_GROUPS = YES;
 				SKIP_INSTALL = YES;

@@ -115,8 +115,12 @@ jobs:
         }
 
         assert_universal "$APP/Contents/MacOS/ProxyBridge"
-        EXT="$APP/Contents/Library/SystemExtensions/com.macproxybridge.client.extension.systemextension"
-        assert_universal "$EXT/Contents/MacOS/com.macproxybridge.client.extension"
+        EXT_DIR=$(find "$APP/Contents/Library/SystemExtensions" -maxdepth 1 -name "*.systemextension" | head -1)
+        if [ -z "$EXT_DIR" ]; then
+          echo "::error::no system extension embedded in app bundle"
+          exit 1
+        fi
+        assert_universal "$EXT_DIR"/Contents/MacOS/*
 
         # Verify code signature
         codesign -dv --verbose=4 "$APP"
