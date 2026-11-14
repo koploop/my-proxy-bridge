@@ -1,0 +1,205 @@
+name: Build macOS
+permissions:
+  contents: read
+
+# only run when macOS app/extension sources (or this workflow) change
+on:
+  push:
+    branches: [ main, master, dev ]
+    paths:
+      - 'ProxyBridge/**'
+      - 'extension/**'
+      - 'ProxyBridge.xcodeproj/**'
+      - '.github/workflows/build-mac.yml'
+  pull_request:
+    branches: [ main, master, dev ]
+    paths:
+      - 'ProxyBridge/**'
+      - 'extension/**'
+      - 'ProxyBridge.xcodeproj/**'
+      - '.github/workflows/build-mac.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      actions: read
+
+    env:
+      # set by the "Check notarization creds" step; gates the notarize/staple steps
+      HAS_NOTARY_CREDS: 'false'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+    - name: Set up Xcode
+      uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+      with:
+        xcode-version: latest-stable
+
+    # The pbxproj resolves baseConfigurationReference to these two files at the
+    # repo root; they are NOT committed (they contain the real Team ID / profile).
+    - name: Create xcconfig files
+      run: |
+        echo "${{ secrets.MACOS_APP_XCCONFIG }}" > Signing-Config-app.xcconfig
+        echo "${{ secrets.MACOS_EXT_XCCONFIG }}" > Signing-Config-ext.xcconfig
+
+    - name: Install Provisioning Profiles
+      run: |
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+
+        echo "${{ secrets.MACOS_APP_PROVISION_PROFILE }}" | base64 --decode > /tmp/app.provisionprofile
+        echo "${{ secrets.MACOS_EXT_PROVISION_PROFILE }}" | base64 --decode > /tmp/ext.provisionprofile
+
+        APP_UUID=$(security cms -D -i /tmp/app.provisionprofile | plutil -extract UUID raw -)
+        EXT_UUID=$(security cms -D -i /tmp/ext.provisionprofile | plutil -extract UUID raw -)
+
+        cp /tmp/app.provisionprofile ~/Library/MobileDevice/Provisioning\ Profiles/${APP_UUID}.provisionprofile
+        cp /tmp/ext.provisionprofile ~/Library/MobileDevice/Provisioning\ Profiles/${EXT_UUID}.provisionprofile
+
+        echo "Installed app profile: ${APP_UUID}"
+        echo "Installed ext profile: ${EXT_UUID}"
+
+    - name: Import Certificate
+      run: |
+        # Decode Developer ID Application certificate
+        echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > /tmp/certificate.p12
+
+        # Create a temporary keychain
+        security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+        security set-keychain-settings build.keychain
+
+        security import /tmp/certificate.p12 \
+          -k build.keychain \
+          -P "${{ secrets.MACOS_CERTIFICATE_PASSWORD }}" \
+          -T /usr/bin/codesign \
+          -A
+
+        # Allow codesign to access the keychain without prompting
+        security set-key-partition-list -S apple-tool:,apple: -s -k "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+
+        security find-identity -v -p codesigning build.keychain
+
+    - name: Build Universal Binary
+      run: |
+        xcodebuild \
+          -project ProxyBridge.xcodeproj \
+          -scheme ProxyBridge \
+          -configuration Release \
+          -derivedDataPath build/DerivedData \
+          ARCHS="arm64 x86_64" \
+          ONLY_ACTIVE_ARCH=NO \
+          OTHER_CODE_SIGN_FLAGS="--keychain build.keychain --timestamp" \
+          clean build
+
+    - name: Verify Build
+      run: |
+        APP="build/DerivedData/Build/Products/Release/ProxyBridge.app"
+        ls -la build/DerivedData/Build/Products/Release/
+
+        # hard gate: every shipped binary must be universal
+        assert_universal() {
+          local bin="$1"
+          local archs
+          archs="$(lipo -archs "$bin")"
+          echo "archs of $bin -> $archs"
+          if [[ "$archs" != *"arm64"* || "$archs" != *"x86_64"* ]]; then
+            echo "::error::$bin is not universal (found: $archs)"
+            exit 1
+          fi
+        }
+
+        assert_universal "$APP/Contents/MacOS/ProxyBridge"
+        EXT="$APP/Contents/Library/SystemExtensions/com.macproxybridge.client.extension.systemextension"
+        assert_universal "$EXT/Contents/MacOS/com.macproxybridge.client.extension"
+
+        # Verify code signature
+        codesign -dv --verbose=4 "$APP"
+
+    - name: Check notarization credentials
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      run: |
+        if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+          echo "HAS_NOTARY_CREDS=true" >> "$GITHUB_ENV"
+        else
+          echo "No notarization credentials configured - skipping notarization."
+        fi
+
+    - name: Notarize App
+      if: env.HAS_NOTARY_CREDS == 'true'
+      run: |
+        APP_PATH="build/DerivedData/Build/Products/Release/ProxyBridge.app"
+
+        # Zip the app for submission
+        ditto -c -k --keepParent "$APP_PATH" /tmp/ProxyBridge.zip
+
+        # Submit for notarization and wait for result, capture submission ID
+        SUBMIT_OUTPUT=$(xcrun notarytool submit /tmp/ProxyBridge.zip \
+          --apple-id "${{ secrets.APPLE_ID }}" \
+          --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+          --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+          --wait 2>&1)
+
+        echo "$SUBMIT_OUTPUT"
+
+        SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep "^  id:" | head -1 | awk '{print $2}')
+        echo "Submission ID: $SUBMISSION_ID"
+
+        if [ -n "$SUBMISSION_ID" ]; then
+          echo "--- Notarization Log ---"
+          xcrun notarytool log "$SUBMISSION_ID" \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+            --team-id "${{ secrets.APPLE_TEAM_ID }}" 2>&1 || true
+        fi
+
+        if ! echo "$SUBMIT_OUTPUT" | grep -q "status: Accepted"; then
+          echo "Notarization failed!"
+          exit 1
+        fi
+
+        # Staple the notarization ticket to the app
+        xcrun stapler staple "$APP_PATH"
+        echo "App notarized and stapled"
+
+    - name: Verify Gatekeeper assessment
+      if: env.HAS_NOTARY_CREDS == 'true'
+      run: |
+        spctl -a -vvv -t install "build/DerivedData/Build/Products/Release/ProxyBridge.app"
+
+    - name: Zip App for Distribution
+      run: |
+        ditto -c -k --keepParent \
+          "build/DerivedData/Build/Products/Release/ProxyBridge.app" \
+          ProxyBridge-macOS.zip
+        ls -lh ProxyBridge-macOS.zip
+
+    - name: Upload App Artifact
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: ProxyBridge-macOS
+        path: ProxyBridge-macOS.zip
+        retention-days: 30
+
+    - name: Cleanup
+      if: always()
+      run: |
+        # Delete temporary keychain
+        security delete-keychain build.keychain || true
+
+        # Remove provisioning profiles
+        rm -f ~/Library/MobileDevice/Provisioning\ Profiles/*.provisionprofile || true
+
+        # Remove temp cert and profile files
+        rm -f /tmp/certificate.p12 /tmp/app.provisionprofile /tmp/ext.provisionprofile /tmp/ProxyBridge.zip || true
+
+        # Remove xcconfig files with sensitive data
+        rm -f Signing-Config-app.xcconfig Signing-Config-ext.xcconfig || true

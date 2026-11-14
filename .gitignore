@@ -1,0 +1,9 @@
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+
+# CI-generated signing configs (written from GitHub secrets)
+Signing-Config-app.xcconfig
+Signing-Config-ext.xcconfig
