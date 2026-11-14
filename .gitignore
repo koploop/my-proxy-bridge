@@ -7,3 +7,6 @@ xcuserdata/
 # CI-generated signing configs (written from GitHub secrets)
 Signing-Config-app.xcconfig
 Signing-Config-ext.xcconfig
+
+# Local signing materials (certificates, profiles, passwords) - never commit
+cer/
