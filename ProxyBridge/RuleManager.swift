@@ -2,7 +2,36 @@ import Foundation
 import NetworkExtension
 
 struct RuleManager {
-    
+
+    // fallback rule channel: the provider IPC used by sendProviderMessage can be
+    // rejected for development-signed host apps on some macOS builds, so the saved
+    // rule list is also mirrored into the shared app group container and the
+    // extension loads it from there when the tunnel starts.
+    static let sharedContainerSuiteName = "group.com.commonuse.magic"
+    static let sharedContainerRulesKey = "proxyRules"
+
+    static func sharedContainerDefaults() -> UserDefaults? {
+        UserDefaults(suiteName: sharedContainerSuiteName)
+    }
+
+    static func mirrorSavedRulesToSharedContainer() {
+        let rules = UserDefaults.standard.array(forKey: "proxyRules") as? [[String: Any]] ?? []
+        sharedContainerDefaults()?.set(normalizedPayload(rules), forKey: sharedContainerRulesKey)
+    }
+
+    private static func normalizedPayload(_ rules: [[String: Any]]) -> [[String: Any]] {
+        rules.map { rule in
+            [
+                "processNames": rule["processNames"] as? String ?? "",
+                "targetHosts": rule["targetHosts"] as? String ?? "",
+                "targetPorts": rule["targetPorts"] as? String ?? "",
+                "ruleProtocol": rule["protocol"] as? String ?? "BOTH",
+                "ruleAction": rule["action"] as? String ?? "DIRECT",
+                "enabled": rule["enabled"] as? Bool ?? true
+            ]
+        }
+    }
+
     static func addRule(
         session: NETunnelProviderSession,
         processNames: String,
@@ -103,16 +132,10 @@ struct RuleManager {
         rules: [[String: Any]],
         completion: @escaping (Bool, Int) -> Void
     ) {
-        let payload: [[String: Any]] = rules.map { rule in
-            [
-                "processNames": rule["processNames"] as? String ?? "",
-                "targetHosts": rule["targetHosts"] as? String ?? "",
-                "targetPorts": rule["targetPorts"] as? String ?? "",
-                "ruleProtocol": rule["protocol"] as? String ?? "BOTH",
-                "ruleAction": rule["action"] as? String ?? "DIRECT",
-                "enabled": rule["enabled"] as? Bool ?? true
-            ]
-        }
+        let payload = normalizedPayload(rules)
+        // keep the shared container copy in sync so a tunnel started later loads
+        // the same list even if the IPC delivery below never reaches the extension
+        sharedContainerDefaults()?.set(payload, forKey: sharedContainerRulesKey)
 
         sendMessage(session: session, action: "setRules", params: ["rules": payload]) { success, result in
             if success {

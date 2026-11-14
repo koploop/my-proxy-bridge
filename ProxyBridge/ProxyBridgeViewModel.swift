@@ -673,6 +673,7 @@ class ProxyBridgeViewModel: NSObject, ObservableObject {
             }
 
             do {
+                RuleManager.mirrorSavedRulesToSharedContainer()
                 DispatchQueue.main.async { self.watchTunnelStart(session: session) }
                 try session.startTunnel()
             } catch {

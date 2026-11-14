@@ -520,6 +520,31 @@ class AppProxyProvider: NETransparentProxyProvider {
         logQueueLock.unlock()
     }
 
+    // fallback rule channel: the app mirrors the saved rule list into the shared
+    // app group container (RuleManager.mirrorSavedRulesToSharedContainer) because
+    // the setRules provider IPC can be rejected for development-signed host apps.
+    // load the mirrored list here so the tunnel starts with rules either way.
+    private func loadRulesFromSharedContainer() -> Int {
+        guard let raw = UserDefaults(suiteName: "group.com.commonuse.magic")?
+            .array(forKey: "proxyRules") as? [[String: Any]] else { return 0 }
+        var built: [CompiledRule] = []
+        built.reserveCapacity(raw.count)
+        for dict in raw {
+            guard let ruleData = try? JSONSerialization.data(withJSONObject: dict),
+                  let rule = try? JSONDecoder().decode(ProxyRule.self, from: ruleData) else { continue }
+            built.append((rule, ProxyRule.Matcher(rule)))
+        }
+        rulesLock.lock()
+        rules = built.map { item in
+            var rule = item.rule
+            rule.ruleId = nextRuleId
+            nextRuleId += 1
+            return (rule, item.matcher)
+        }
+        rulesLock.unlock()
+        return built.count
+    }
+
     override func startProxy(options: [String : Any]?, completionHandler: @escaping (Error?) -> Void) {
         let settings = NETransparentProxyNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         
@@ -533,6 +558,11 @@ class AppProxyProvider: NETransparentProxyProvider {
         )
         
         settings.includedNetworkRules = [allTrafficRule]
+
+        let sharedRuleCount = loadRulesFromSharedContainer()
+        if sharedRuleCount > 0 {
+            diag("Loaded \(sharedRuleCount) rule(s) from shared container")
+        }
 
         startUDPSweepTimer()
         diag("Tunnel starting")
