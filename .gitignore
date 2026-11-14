@@ -4,10 +4,6 @@ build/
 *.xcuserstate
 xcuserdata/
 
-# CI-generated signing configs (written from GitHub secrets)
-Signing-Config-app.xcconfig
-Signing-Config-ext.xcconfig
-
-# Local signing materials (certificates, profiles, passwords) - never commit
+# CI signing configs are committed in-repo; local signing materials never are
 cer/
 token.txt

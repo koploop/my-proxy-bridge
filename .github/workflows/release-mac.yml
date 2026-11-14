@@ -29,47 +29,7 @@ jobs:
       with:
         xcode-version: latest-stable
 
-    - name: Create xcconfig files
-      run: |
-        echo "${{ secrets.MACOS_APP_XCCONFIG }}" > Signing-Config-app.xcconfig
-        echo "${{ secrets.MACOS_EXT_XCCONFIG }}" > Signing-Config-ext.xcconfig
-
-    - name: Install Provisioning Profiles
-      run: |
-        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-
-        echo "${{ secrets.MACOS_APP_PROVISION_PROFILE }}" | base64 --decode > /tmp/app.provisionprofile
-        echo "${{ secrets.MACOS_EXT_PROVISION_PROFILE }}" | base64 --decode > /tmp/ext.provisionprofile
-
-        APP_UUID=$(security cms -D -i /tmp/app.provisionprofile | plutil -extract UUID raw -)
-        EXT_UUID=$(security cms -D -i /tmp/ext.provisionprofile | plutil -extract UUID raw -)
-
-        cp /tmp/app.provisionprofile ~/Library/MobileDevice/Provisioning\ Profiles/${APP_UUID}.provisionprofile
-        cp /tmp/ext.provisionprofile ~/Library/MobileDevice/Provisioning\ Profiles/${EXT_UUID}.provisionprofile
-
-        echo "Installed app profile: ${APP_UUID}"
-        echo "Installed ext profile: ${EXT_UUID}"
-
-    - name: Import Certificate
-      run: |
-        echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > /tmp/certificate.p12
-
-        security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
-        security set-keychain-settings build.keychain
-
-        security import /tmp/certificate.p12 \
-          -k build.keychain \
-          -P "${{ secrets.MACOS_CERTIFICATE_PASSWORD }}" \
-          -T /usr/bin/codesign \
-          -A
-
-        security set-key-partition-list -S apple-tool:,apple: -s -k "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
-
-        security find-identity -v -p codesigning build.keychain
-
-    - name: Build Universal Binary
+    - name: Build Universal Binary (unsigned)
       run: |
         xcodebuild \
           -project ProxyBridge.xcodeproj \
@@ -78,7 +38,7 @@ jobs:
           -derivedDataPath build/DerivedData \
           ARCHS="arm64 x86_64" \
           ONLY_ACTIVE_ARCH=NO \
-          OTHER_CODE_SIGN_FLAGS="--keychain build.keychain --timestamp" \
+          CODE_SIGNING_ALLOWED=NO \
           clean build
 
     - name: Verify Build
@@ -86,7 +46,6 @@ jobs:
         APP="build/DerivedData/Build/Products/Release/ProxyBridge.app"
         ls -la build/DerivedData/Build/Products/Release/
 
-        # hard gate: fail the release if any shipped binary is not universal
         assert_universal() {
           local bin="$1"
           local archs
@@ -106,40 +65,12 @@ jobs:
         fi
         assert_universal "$EXT_DIR"/Contents/MacOS/*
 
-        codesign -dv --verbose=4 "$APP"
-
-    - name: Notarize App
-      run: |
-        APP_PATH="build/DerivedData/Build/Products/Release/ProxyBridge.app"
-
-        ditto -c -k --keepParent "$APP_PATH" /tmp/ProxyBridge.zip
-
-        SUBMIT_OUTPUT=$(xcrun notarytool submit /tmp/ProxyBridge.zip \
-          --apple-id "${{ secrets.APPLE_ID }}" \
-          --password "${{ secrets.APPLE_APP_PASSWORD }}" \
-          --team-id "${{ secrets.APPLE_TEAM_ID }}" \
-          --wait 2>&1)
-
-        echo "$SUBMIT_OUTPUT"
-
-        SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep "^  id:" | head -1 | awk '{print $2}')
-        echo "Submission ID: $SUBMISSION_ID"
-
-        if [ -n "$SUBMISSION_ID" ]; then
-          echo "--- Notarization Log ---"
-          xcrun notarytool log "$SUBMISSION_ID" \
-            --apple-id "${{ secrets.APPLE_ID }}" \
-            --password "${{ secrets.APPLE_APP_PASSWORD }}" \
-            --team-id "${{ secrets.APPLE_TEAM_ID }}" 2>&1 || true
-        fi
-
-        if ! echo "$SUBMIT_OUTPUT" | grep -q "status: Accepted"; then
-          echo "Notarization failed!"
+        if codesign -dv "$APP" 2>/dev/null; then
+          echo "::error::app unexpectedly signed; expected unsigned build"
           exit 1
+        else
+          echo "app is unsigned (expected - sign locally with Scripts/sign-local.sh)"
         fi
-
-        xcrun stapler staple "$APP_PATH"
-        spctl -a -vvv -t install "$APP_PATH"
 
     - name: Zip App
       run: |
@@ -160,11 +91,3 @@ jobs:
         name: ProxyBridge-macOS
         path: ProxyBridge-macOS.zip
         retention-days: 30
-
-    - name: Cleanup
-      if: always()
-      run: |
-        security delete-keychain build.keychain || true
-        rm -f ~/Library/MobileDevice/Provisioning\ Profiles/*.provisionprofile || true
-        rm -f /tmp/certificate.p12 /tmp/app.provisionprofile /tmp/ext.provisionprofile /tmp/ProxyBridge.zip || true
-        rm -f Signing-Config-app.xcconfig Signing-Config-ext.xcconfig || true

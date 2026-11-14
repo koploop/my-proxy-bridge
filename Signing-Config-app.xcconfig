@@ -1,15 +1,11 @@
 //
-//  Signing-Config.xcconfig
-//  ProxyBridge
+//  Signing-Config-app.xcconfig
+//  ProxyBridge (main app)
 //
-//  Created by sourav kalal on 11/01/26.
-//
-
-// Configuration settings file format documentation can be found at:
-// https://developer.apple.com/documentation/xcode/adding-a-build-configuration-file-to-your-project
 
 // MARK: - Team Configuration
-DEVELOPMENT_TEAM = $(MAC_PROXY_TEAM)
+DEVELOPMENT_TEAM = P57F6K6J34
+MAC_PROXY_TEAM = P57F6K6J34
 
 // MARK: - Main App Signing (ProxyBridge)
 CODE_SIGN_STYLE = Manual
@@ -18,7 +14,9 @@ CODE_SIGN_ENTITLEMENTS = ProxyBridge/ProxyBridgeRelease.entitlements
 PRODUCT_BUNDLE_IDENTIFIER = com.commonuse.magic
 PRODUCT_MODULE_NAME = ProxyBridge
 PRODUCT_NAME = ProxyBridge
-PROVISIONING_PROFILE_SPECIFIER = $(MAC_PROXY_APP_PROFILE)
+PROVISIONING_PROFILE_SPECIFIER = macCommonUse
+MAC_PROXY_APP_PROFILE = macCommonUse
+MAC_PROXY_ICLOUD_CONTAINER = iCloud.com.commonuse.magic
 
 // MARK: - Additional Signing Settings
 CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO
@@ -27,4 +25,3 @@ ENABLE_HARDENED_RUNTIME = YES
 // MARK: - Architecture (Universal Binary: Intel + Apple Silicon)
 ARCHS = arm64 x86_64
 ONLY_ACTIVE_ARCH = NO
-
