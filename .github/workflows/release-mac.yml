@@ -65,11 +65,13 @@ jobs:
         fi
         assert_universal "$EXT_DIR"/Contents/MacOS/*
 
-        if codesign -dv "$APP" 2>/dev/null; then
-          echo "::error::app unexpectedly signed; expected unsigned build"
-          exit 1
-        else
+        if ! SIGINFO=$(codesign -dv "$APP" 2>&1); then
           echo "app is unsigned (expected - sign locally with Scripts/sign-local.sh)"
+        elif echo "$SIGINFO" | grep -q "adhoc"; then
+          echo "app is adhoc-signed (expected - sign locally with Scripts/sign-local.sh)"
+        else
+          echo "::error::app unexpectedly signed with a real identity"
+          exit 1
         fi
 
     - name: Zip App
