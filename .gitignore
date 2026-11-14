@@ -7,3 +7,4 @@ xcuserdata/
 # CI signing configs are committed in-repo; local signing materials never are
 cer/
 token.txt
+log.txt
