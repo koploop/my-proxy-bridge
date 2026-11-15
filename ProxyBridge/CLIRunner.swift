@@ -92,7 +92,7 @@ enum CLI {
             func request(_ request: OSSystemExtensionRequest, didFinishWithResult result: OSSystemExtensionRequest.Result) { onFinish() }
             func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) { onFail(error) }
             func requestNeedsUserApproval(_ request: OSSystemExtensionRequest) {
-                say("Extension: waiting for your approval. Open System Settings > Privacy & Security and click Allow, then run the command again.")
+                CLI.say("Extension: waiting for your approval. Open System Settings > Privacy & Security and click Allow, then run the command again.")
             }
             func request(_ request: OSSystemExtensionRequest, actionForReplacingExtension existing: OSSystemExtensionProperties, withExtension ext: OSSystemExtensionProperties) -> OSSystemExtensionRequest.ReplacementAction {
                 .replace
