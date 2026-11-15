@@ -525,8 +525,11 @@ class AppProxyProvider: NETransparentProxyProvider {
     // the setRules provider IPC can be rejected for development-signed host apps.
     // load the mirrored list here so the tunnel starts with rules either way.
     private func loadRulesFromSharedContainer() -> Int {
-        guard let raw = UserDefaults(suiteName: "group.com.commonuse.magic")?
-            .array(forKey: "proxyRules") as? [[String: Any]] else { return 0 }
+        guard let url = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.commonuse.magic")?
+            .appendingPathComponent("proxybridge-rules.json"),
+              let data = try? Data(contentsOf: url),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return 0 }
         var built: [CompiledRule] = []
         built.reserveCapacity(raw.count)
         for dict in raw {

@@ -6,9 +6,19 @@ struct RuleManager {
     // fallback rule channel: the provider IPC used by sendProviderMessage can be
     // rejected for development-signed host apps on some macOS builds, so the saved
     // rule list is also mirrored into the shared app group container and the
-    // extension loads it from there when the tunnel starts.
+    // extension loads it from there when the tunnel starts. UserDefaults suites
+    // don't resolve reliably across the app/system-extension boundary, so the
+    // mirror is a plain JSON file in the container (same idea as the DNSMapStore
+    // file mirror, which worked). the suite write is kept as a harmless extra.
     static let sharedContainerSuiteName = "group.com.commonuse.magic"
     static let sharedContainerRulesKey = "proxyRules"
+    static let sharedRulesFileName = "proxybridge-rules.json"
+
+    static func sharedRulesFileURL() -> URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: sharedContainerSuiteName)?
+            .appendingPathComponent(sharedRulesFileName)
+    }
 
     static func sharedContainerDefaults() -> UserDefaults? {
         UserDefaults(suiteName: sharedContainerSuiteName)
@@ -16,7 +26,15 @@ struct RuleManager {
 
     static func mirrorSavedRulesToSharedContainer() {
         let rules = UserDefaults.standard.array(forKey: "proxyRules") as? [[String: Any]] ?? []
-        sharedContainerDefaults()?.set(normalizedPayload(rules), forKey: sharedContainerRulesKey)
+        writeSharedRules(normalizedPayload(rules))
+    }
+
+    private static func writeSharedRules(_ payload: [[String: Any]]) {
+        if let url = sharedRulesFileURL(),
+           let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted]) {
+            try? data.write(to: url, options: .atomic)
+        }
+        sharedContainerDefaults()?.set(payload, forKey: sharedContainerRulesKey)
     }
 
     private static func normalizedPayload(_ rules: [[String: Any]]) -> [[String: Any]] {
@@ -135,7 +153,7 @@ struct RuleManager {
         let payload = normalizedPayload(rules)
         // keep the shared container copy in sync so a tunnel started later loads
         // the same list even if the IPC delivery below never reaches the extension
-        sharedContainerDefaults()?.set(payload, forKey: sharedContainerRulesKey)
+        writeSharedRules(payload)
 
         sendMessage(session: session, action: "setRules", params: ["rules": payload]) { success, result in
             if success {
