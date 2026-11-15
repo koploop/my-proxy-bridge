@@ -78,9 +78,10 @@
 - 对 nesessionmanager(iOS 18.2 伪代码 dump)的检查逻辑分析:私有 fallback 通道(`com.apple.private.*`)第三方拿不到;主检查路径按我们的 entitlement 集合应当通过,但 macOS 13 的透明代理会话(独立类 NESMTransparentProxySession,无公开 dump)实际行为不明。**根因未定位**,疑似与 Apple Development 证书 + macOS 13 组合有关(上游开发者用 Xcode 自动签名在新系统上开发,无法直接对比)。
 
 ### 2.10 解决方案:规则走 App Group 共享容器(Plan B)
-- 既然 IPC 通道不可用,改走两个进程都能访问的 App Group 容器(`DNSMapStore` 本来就在用):
-  - `RuleManager` 在每次 apply 规则前、以及 GUI 启动隧道**之前**,把规则镜像到 `UserDefaults(suiteName: "group.com.commonuse.magic")["proxyRules"]`
-  - 扩展 `AppProxyProvider.startProxy` 启动时从同一位置加载规则(日志:`Loaded N rule(s) from shared container`)
+- 既然 IPC 通道不可用,改走两个进程都能访问的 App Group 容器(`DNSMapStore` 的文件通道已验证可行):
+  - `RuleManager` 在每次 apply 规则前、以及 GUI 启动隧道**之前**,把规则镜像为容器里的 JSON 文件 `proxybridge-rules.json`(同时保留 UserDefaults suite 写入作为冗余)
+  - 扩展 `AppProxyProvider.startProxy` 启动时从该文件加载规则(日志:`Loaded N rule(s) from shared container`)
+- **教训**:第一版用 `UserDefaults(suiteName:)` 做通道,在系统扩展进程里**解析不到共享 suite**(静默返回空),macOS 13 上不可靠;文件通道没有这个问题。
 - IPC 代码保留(其他环境可用),共享容器作为兜底。
 - 代价:运行中改规则不会实时生效(原靠 IPC 推送),需重启代理;连接记录等扩展→App 的上行通道同样不可用。
 
