@@ -28,6 +28,8 @@
 - 每次更新扩展代码后必须**提升版本号**(`CURRENT_PROJECT_VERSION` 和/或 `MARKETING_VERSION`),否则 sysexd 认为"已激活"而拒绝替换,新扩展永远不会生效(见 §2.11)
 - 替换扩展后若启动报 "Unable to find this application extension record in the Launch Services database",运行一次 `ProxyBridge --reinstall-extension`(先退出 GUI)做干净重装
 - 本机访问 github.com 需要代理:`export https_proxy=http://127.0.0.1:7897 all_proxy=socks5://127.0.0.1:7897`(git push 建议再加 `-c http.version=HTTP/1.1`)
+- **被测应用不能配代理**:走了系统代理/手动代理(如 Clash Verge 的 127.0.0.1:7897)的流量走环回,透明代理拦截不到,规则不会生效(见 §2.12)
+- **规则改动必须重启代理**(停止 → 启动)才生效,运行中修改无效(见 §3)
 
 ---
 
@@ -90,9 +92,47 @@
 - **Launch Services 记录丢失**:替换后旧 staged 副本处于 "terminated waiting to uninstall on reboot",neagent 报 "Unable to find this application extension record in the Launch Services database" 且 `lsregister -f` 直接注册 staged 副本被系统拒绝(-10811)。
 - **解决**:新增 CLI 开关 `ProxyBridge --reinstall-extension`(先 `deactivationRequest` 卸载、再 `activationRequest` 全新安装),并配合重启清理旧副本。
 
+### 2.12 走了系统代理的应用不受透明代理规则约束
+- 现象:给 Firefox 设了"阻止"规则(协议 TCP/UDP)后照样能上网。
+- 原因:本机跑着 Clash Verge(系统代理模式),Firefox 的所有连接都发给 `localhost:7897`(verge-mihomo 的端口)——**环回(loopback)流量不被透明代理 divert**,扩展根本看不到这些连接,规则无从匹配。curl 被拦是因为 curl 默认不走系统代理。
+- 排查命令:`lsof -iTCP -P | grep firefox`,连接全指向 localhost 即中招。
+- 结论:测试规则前先关掉目标应用的代理设置(或退出 Clash Verge);两工具共存时,ProxyBridge 只能管到 `verge-mihomo` 进程自己的出站连接,管不到经它转发的应用流量。
+
 ---
 
-## 3. 解决方案汇总(当前架构)
+## 3. 规则下发方案(重点)
+
+### 3.1 演进史
+| 阶段 | 通道 | 结果 |
+|---|---|---|
+| 0(上游原始设计) | provider IPC:`sendProviderMessage`(setRules/addRule/clearRules) | 本机被 entitlement 检查拒绝,见 §2.9 |
+| 1 | App Group 的 `UserDefaults(suiteName:)` | 系统扩展进程里解析不到共享 suite,静默返回空 |
+| 2 | App Group 容器里的 JSON 文件 | **系统扩展以 root 运行**,`containerURL` 解析到 /var/root 的容器,与用户 App 写入的不是同一路径 |
+| 3(**当前**) | **`startTunnel(options:)`** | App 自己的会话通道,不经过 provider IPC 的 entitlement 门;扩展在 `startProxy(options:)` 里直接收到规则。已端到端验证 |
+
+### 3.2 当前规则生效链路
+1. GUI 点"启动代理" → `RuleManager.mirrorSavedRulesToSharedContainer()`(写容器文件 + suite,兜底用)
+2. `session.startTunnel(options: ["rules": RuleManager.savedRulesPayload()])`
+3. 扩展 `startProxy(options:)` → 优先用 options 里的规则 → 为空则回退读容器文件
+4. 扩展日志出现 `Loaded N rule(s)` 即送达成功
+
+### 3.3 当前已知限制
+- **活动日志 / 连接记录页不显示**:扩展→App 方向(日志轮询、连接记录推送)走同样的 provider IPC,被同一 entitlement 检查拦截。排查扩展行为请用 Console.app 过滤 subsystem `com.commonuse.magic.extension`,或 `log show --predicate 'subsystem == "com.commonuse.magic.extension"'`。
+- **规则不实时**:修改规则后必须 停止代理 → 启动代理 才生效(上游设计里的 addRule/clearRules 实时推送依赖 IPC,本机不可用)。
+- **CLI 模式**(`--profile`)未接 options 通道,首跑靠容器文件兜底;文件写入早于隧道启动时不影响,但 CLI 与 GUI 互斥、且只应有一个在控制扩展。
+
+### 3.4 高版本 macOS + Xcode 环境下切回 IPC 验证
+换到 2018 年后机型(macOS 14+/26)+ Xcode 16 后,按此验证 IPC 是否恢复可用:
+1. **观察门**:启动代理后执行
+   `log show --last 5m --predicate 'process == "nesessionmanager"' | grep -c "not entitled"`
+   结果为 0 且 App 活动日志出现 `Loaded N rule(s) from local storage`,说明 IPC 已通。
+2. **实时性验证**:不改代码直接测——添加一条规则后**不重启代理**,让目标应用发起新连接。若新规则即时生效,说明 addRule/setRules 的 IPC 实时推送可用。
+3. **代码层确认点**(如需恢复上游行为):`RuleManager.sendMessage` 的 completion 返回 success=true;`reloadAndStartTunnel` 里 `loadRulesFromUserDefaults` 成功返回 count。
+4. **建议架构(任何环境都成立)**:保留 options 通道作为启动时的一次性全量下发(它总是有效),IPC 作为运行期增量通道(IPC 通的环境自动获得实时性)。当前代码已经就是这个形态,无需改动。
+
+---
+
+## 4. 解决方案汇总(当前架构)
 
 ```
 git push → GitHub Actions (macos-latest, xcodebuild, CODE_SIGNING_ALLOWED=NO)
@@ -109,7 +149,7 @@ git push → GitHub Actions (macos-latest, xcodebuild, CODE_SIGNING_ALLOWED=NO)
 
 ---
 
-## 4. 后续方向
+## 5. 后续方向
 
 1. **根治 IPC 问题(优先级最高)**:
    - 装 Ghidra(`GHIDRA_INSTALL_DIR`)或 Hopper,逆向本机 `/usr/libexec/nesessionmanager` 的 `NESMTransparentProxySession` IPC entitlement 检查,弄清楚 macOS 13 到底要什么;
