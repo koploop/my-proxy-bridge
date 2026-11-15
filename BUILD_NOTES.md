@@ -60,8 +60,8 @@
 
 ### 2.6 entitlements 精简
 - 上游模板把 8 种 NE 类型全写进 entitlements,属于"模板惯性"。按实际实现裁剪:
-  - 扩展只保留 `app-proxy-provider` / `dns-proxy`(对应 Info.plist 里的两个 NEProviderClasses);**普通版值就够了**——Xcode 的"系统扩展 → Network Extension"模板出厂就是普通值,实测系统扩展激活、运行完全正常
-  - 主应用需要 NE entitlement 吗?**需要**:它用 `NETransparentProxyManager` / `NEDNSProxyManager` 下发配置,签名里必须有 `app-proxy-provider` + `dns-proxy`,否则 `saveToPreferences` 返回 permission denied(见 2.8)
+  - 扩展只保留 `app-proxy-provider` / `dns-proxy`(对应 Info.plist 里的两个 NEProviderClasses),且必须用**普通版值**——描述文件只授予普通值,内核在启动扩展时会校验 entitlements ⊆ profile(Xcode 的"系统扩展 → Network Extension"模板出厂也是普通值,实测完全正常)
+  - 主应用同样需要 `app-proxy-provider` + `dns-proxy`:它用 `NETransparentProxyManager` / `NEDNSProxyManager` 下发配置,签名里缺了 `saveToPreferences` 直接 permission denied(见 2.8)
 
 ### 2.7 `$(MAC_PROXY_ICLOUD_CONTAINER)` 导致启动即崩溃
 - 手工 `codesign` 不做构建变量替换,字面量 `$(MAC_PROXY_ICLOUD_CONTAINER)` 进了签名,内核校验 `entitlements ⊆ profile` 失败,SIGKILL "Code Signature Invalid"。
