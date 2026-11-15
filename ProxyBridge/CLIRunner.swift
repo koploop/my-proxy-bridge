@@ -119,6 +119,7 @@ enum CLI {
         d.onFail = { error in fail("Deactivation failed: \(error.localizedDescription)") }
         OSSystemExtensionManager.shared.submitRequest(deactivate)
         RunLoop.main.run()
+        exit(0)
     }
 
     private static func listProfiles() {
