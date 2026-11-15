@@ -675,7 +675,10 @@ class ProxyBridgeViewModel: NSObject, ObservableObject {
             do {
                 RuleManager.mirrorSavedRulesToSharedContainer()
                 DispatchQueue.main.async { self.watchTunnelStart(session: session) }
-                try session.startTunnel()
+                // rules also travel inside the tunnel start options: this channel
+                // belongs to our own session, so it works where provider IPC is
+                // denied, and the extension needs no separate rule delivery
+                try session.startTunnel(options: ["rules": RuleManager.savedRulesPayload()])
             } catch {
                 if let obs = observer { NotificationCenter.default.removeObserver(obs) }
                 observer = nil

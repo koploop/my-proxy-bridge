@@ -524,12 +524,7 @@ class AppProxyProvider: NETransparentProxyProvider {
     // app group container (RuleManager.mirrorSavedRulesToSharedContainer) because
     // the setRules provider IPC can be rejected for development-signed host apps.
     // load the mirrored list here so the tunnel starts with rules either way.
-    private func loadRulesFromSharedContainer() -> Int {
-        guard let url = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.commonuse.magic")?
-            .appendingPathComponent("proxybridge-rules.json"),
-              let data = try? Data(contentsOf: url),
-              let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return 0 }
+    private func applyCompiledRules(_ raw: [[String: Any]]) -> Int {
         var built: [CompiledRule] = []
         built.reserveCapacity(raw.count)
         for dict in raw {
@@ -548,6 +543,15 @@ class AppProxyProvider: NETransparentProxyProvider {
         return built.count
     }
 
+    private func loadRulesFromSharedContainer() -> Int {
+        guard let url = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.commonuse.magic")?
+            .appendingPathComponent("proxybridge-rules.json"),
+              let data = try? Data(contentsOf: url),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return 0 }
+        return applyCompiledRules(raw)
+    }
+
     override func startProxy(options: [String : Any]?, completionHandler: @escaping (Error?) -> Void) {
         let settings = NETransparentProxyNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         
@@ -562,9 +566,15 @@ class AppProxyProvider: NETransparentProxyProvider {
         
         settings.includedNetworkRules = [allTrafficRule]
 
-        let sharedRuleCount = loadRulesFromSharedContainer()
-        if sharedRuleCount > 0 {
-            diag("Loaded \(sharedRuleCount) rule(s) from shared container")
+        var loadedRuleCount = 0
+        if let raw = options?["rules"] as? [[String: Any]] {
+            loadedRuleCount = applyCompiledRules(raw)
+        }
+        if loadedRuleCount == 0 {
+            loadedRuleCount = loadRulesFromSharedContainer()
+        }
+        if loadedRuleCount > 0 {
+            diag("Loaded \(loadedRuleCount) rule(s)")
         }
 
         startUDPSweepTimer()

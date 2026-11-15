@@ -25,8 +25,11 @@ struct RuleManager {
     }
 
     static func mirrorSavedRulesToSharedContainer() {
-        let rules = UserDefaults.standard.array(forKey: "proxyRules") as? [[String: Any]] ?? []
-        writeSharedRules(normalizedPayload(rules))
+        writeSharedRules(savedRulesPayload())
+    }
+
+    static func savedRulesPayload() -> [[String: Any]] {
+        normalizedPayload(UserDefaults.standard.array(forKey: "proxyRules") as? [[String: Any]] ?? [])
     }
 
     private static func writeSharedRules(_ payload: [[String: Any]]) {
@@ -37,7 +40,7 @@ struct RuleManager {
         sharedContainerDefaults()?.set(payload, forKey: sharedContainerRulesKey)
     }
 
-    private static func normalizedPayload(_ rules: [[String: Any]]) -> [[String: Any]] {
+    static func normalizedPayload(_ rules: [[String: Any]]) -> [[String: Any]] {
         rules.map { rule in
             [
                 "processNames": rule["processNames"] as? String ?? "",
