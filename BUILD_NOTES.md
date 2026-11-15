@@ -81,7 +81,7 @@
 - 既然 IPC 通道不可用,改走两个进程都能访问的 App Group 容器(`DNSMapStore` 的文件通道已验证可行):
   - `RuleManager` 在每次 apply 规则前、以及 GUI 启动隧道**之前**,把规则镜像为容器里的 JSON 文件 `proxybridge-rules.json`(同时保留 UserDefaults suite 写入作为冗余)
   - 扩展 `AppProxyProvider.startProxy` 启动时从该文件加载规则(日志:`Loaded N rule(s) from shared container`)
-- **教训**:第一版用 `UserDefaults(suiteName:)` 做通道,在系统扩展进程里**解析不到共享 suite**(静默返回空),macOS 13 上不可靠;文件通道没有这个问题。
+- **教训(两轮)**:第一版用 `UserDefaults(suiteName:)` 做通道,在系统扩展进程里解析不到共享 suite(静默返回空);第二版改文件,发现**系统扩展进程以 root 运行**,`containerURL(forSecurityApplicationGroupIdentifier:)` 解析到的是 /var/root 的容器,与用户 App 写入的容器不是同一路径。最终方案:**规则随 `startTunnel(options:)` 传递**——options 属于 App 自己的会话,不经过 provider IPC 的 entitlement 检查,扩展在 `startProxy(options:)` 里直接拿到;共享容器文件保留为兜底。
 - IPC 代码保留(其他环境可用),共享容器作为兜底。
 - 代价:运行中改规则不会实时生效(原靠 IPC 推送),需重启代理;连接记录等扩展→App 的上行通道同样不可用。
 
