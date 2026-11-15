@@ -17,7 +17,7 @@
 | 本地签名 | `Scripts/sign-local.sh`(嵌入描述文件 + codesign,含 quarantine 清理) |
 | 签名材料 | `cer/`(gitignored): Apple Development p12 + 两张开发描述文件 |
 | 系统扩展 | 可激活、隧道可启动;版本 4.1.3/9 |
-| 规则下发 | **App Group 共享容器**(`group.com.commonuse.magic` 的 UserDefaults),原因见 §2.10 |
+| 规则下发 | **随 `startTunnel(options:)` 传递**(主通道,见 §2.10),共享容器文件兜底;2026-11-15 已端到端验证(阻止规则生效) |
 
 **日常构建流程:**
 1. push 代码 → Actions 里 "Build macOS" 跑完(约 4 分钟)→ 下载 `ProxyBridge-macOS` artifact
@@ -77,13 +77,13 @@
 - **做过的签名实验(全部无效)**:baseline(=profile 授予集)/ +旧版布尔 `com.apple.developer.networkextension`(内核直接拒启动)/ +`get-task-allow`(同上)/ 换 Xcode 托管 Team Profile / +`keychain-access-groups`(完整复刻 Xcode 签名)。换 profile、重启、GUI/CLI 启动均复现。
 - 对 nesessionmanager(iOS 18.2 伪代码 dump)的检查逻辑分析:私有 fallback 通道(`com.apple.private.*`)第三方拿不到;主检查路径按我们的 entitlement 集合应当通过,但 macOS 13 的透明代理会话(独立类 NESMTransparentProxySession,无公开 dump)实际行为不明。**根因未定位**,疑似与 Apple Development 证书 + macOS 13 组合有关(上游开发者用 Xcode 自动签名在新系统上开发,无法直接对比)。
 
-### 2.10 解决方案:规则走 App Group 共享容器(Plan B)
-- 既然 IPC 通道不可用,改走两个进程都能访问的 App Group 容器(`DNSMapStore` 的文件通道已验证可行):
-  - `RuleManager` 在每次 apply 规则前、以及 GUI 启动隧道**之前**,把规则镜像为容器里的 JSON 文件 `proxybridge-rules.json`(同时保留 UserDefaults suite 写入作为冗余)
-  - 扩展 `AppProxyProvider.startProxy` 启动时从该文件加载规则(日志:`Loaded N rule(s) from shared container`)
+### 2.10 解决方案:规则走 startTunnel options(Plan B 的最终形态)
+- IPC 通道不可用的背景下试过两条路,都倒在"系统扩展是 root 进程"上:UserDefaults suite 在扩展里解析不到;App Group 容器路径 root/用户各一份。最终:**规则直接放进 `session.startTunnel(options:)`**——options 随 App 自己的会话进入扩展的 `startProxy(options:)`,不经过 provider IPC 的 entitlement 检查,一次启动就完成了规则交付。
+  - `RuleManager.savedRulesPayload()` 生成规范化规则数组,GUI 启动隧道时随 options 下发
+  - 扩展优先用 options 里的规则,为空再回退读容器文件 `proxybridge-rules.json`
 - **教训(两轮)**:第一版用 `UserDefaults(suiteName:)` 做通道,在系统扩展进程里解析不到共享 suite(静默返回空);第二版改文件,发现**系统扩展进程以 root 运行**,`containerURL(forSecurityApplicationGroupIdentifier:)` 解析到的是 /var/root 的容器,与用户 App 写入的容器不是同一路径。最终方案:**规则随 `startTunnel(options:)` 传递**——options 属于 App 自己的会话,不经过 provider IPC 的 entitlement 检查,扩展在 `startProxy(options:)` 里直接拿到;共享容器文件保留为兜底。
-- IPC 代码保留(其他环境可用),共享容器作为兜底。
-- 代价:运行中改规则不会实时生效(原靠 IPC 推送),需重启代理;连接记录等扩展→App 的上行通道同样不可用。
+- provider IPC 代码保留(其他环境可用)。
+- 代价:运行中改规则不会实时生效(原靠 IPC 推送),需重启代理;连接记录等扩展→App 的上行通道(被同一 entitlement 检查拦截)不可用,App 的"连接记录"页拿不到数据。
 
 ### 2.11 系统扩展"替换"的连环坑
 - **同版本激活是 no-op**:sysexd 只在"版本不同"时才走替换流程。只改代码提升 `CURRENT_PROJECT_VERSION` 还不够,`MARKETING_VERSION` 相同也会被无视 → 4.1.2→4.1.3 + build 8→9 后替换成功。
