@@ -7,6 +7,7 @@ struct CLIOptions: Equatable {
     var version = false
     var update = false
     var listProfiles = false
+    var reinstallExtension = false
     var profile: String?    // a saved profile name, or "-" for standard input
     var verbose = 0         // 0 silent, 1 log messages, 2 connections, 3 both
 }
@@ -17,7 +18,7 @@ enum CLIParseResult: Equatable {
 }
 
 enum CLIArguments {
-    static let triggers: Set<String> = ["--cli", "--profile", "--verbose", "--version", "--update", "--list-profiles", "--help", "-h", "-?"]
+    static let triggers: Set<String> = ["--cli", "--profile", "--verbose", "--version", "--update", "--list-profiles", "--reinstall-extension", "--help", "-h", "-?"]
 
     // true when the process was started for the command line. a normal launch from
     // Finder or the Dock passes none of these, so it stays the GUI
@@ -43,6 +44,7 @@ enum CLIArguments {
             case "--version": o.version = true
             case "--update": o.update = true
             case "--list-profiles": o.listProfiles = true
+            case "--reinstall-extension": o.reinstallExtension = true
             case "--profile", "--verbose":
                 let value: String
                 if let inline = inline {
@@ -66,7 +68,7 @@ enum CLIArguments {
             i += 1
         }
         // running needs a profile, the other options stand on their own
-        if !(o.help || o.version || o.update || o.listProfiles) && o.profile == nil {
+        if !(o.help || o.version || o.update || o.listProfiles || o.reinstallExtension) && o.profile == nil {
             return .failure("--profile is required. Use --help.")
         }
         return .run(o)

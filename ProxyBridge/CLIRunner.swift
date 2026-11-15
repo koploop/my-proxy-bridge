@@ -58,6 +58,7 @@ enum CLI {
         if options.version { say("ProxyBridge CLI \(version())"); exit(0) }
         if options.listProfiles { listProfiles(); exit(0) }
         if options.update { checkForUpdates() }
+        if options.reinstallExtension { reinstallExtension() }
 
         guard let spec = options.profile else { fail("--profile is required. Use --help.", code: 2) }
         let profile: CLIProfile
@@ -76,6 +77,48 @@ enum CLI {
         r.start()
         RunLoop.main.run()
         exit(0)
+    }
+
+    // uninstall the staged system extension (dropping stale Launch Services records)
+    // and activate it again so sysexd stages a fresh, fully registered copy
+    private static var reinstallDelegate: NSObject?
+
+    private static func reinstallExtension() -> Never {
+        if guiIsRunning() { fail("The ProxyBridge app is running. Quit it first.") }
+
+        final class Delegate: NSObject, OSSystemExtensionRequestDelegate {
+            var onFinish: () -> Void = {}
+            var onFail: (Error) -> Void = { _ in }
+            func request(_ request: OSSystemExtensionRequest, didFinishWithResult result: OSSystemExtensionRequest.Result) { onFinish() }
+            func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) { onFail(error) }
+            func requestNeedsUserApproval(_ request: OSSystemExtensionRequest) {
+                say("Extension: waiting for your approval. Open System Settings > Privacy & Security and click Allow, then run the command again.")
+            }
+            func request(_ request: OSSystemExtensionRequest, actionForReplacingExtension existing: OSSystemExtensionProperties, withExtension ext: OSSystemExtensionProperties) -> OSSystemExtensionRequest.ReplacementAction {
+                .replace
+            }
+        }
+
+        let d = Delegate()
+        reinstallDelegate = d
+
+        say("Extension: deactivating...")
+        let deactivate = OSSystemExtensionRequest.deactivationRequest(forExtensionWithIdentifier: CLI.extensionIdentifier, queue: .main)
+        deactivate.delegate = d
+        d.onFinish = {
+            say("Extension: deactivated. Activating a fresh copy...")
+            let activate = OSSystemExtensionRequest.activationRequest(forExtensionWithIdentifier: CLI.extensionIdentifier, queue: .main)
+            activate.delegate = d
+            d.onFinish = {
+                say("Extension: reinstalled.")
+                exit(0)
+            }
+            d.onFail = { error in fail("Activation failed: \(error.localizedDescription)") }
+            OSSystemExtensionManager.shared.submitRequest(activate)
+        }
+        d.onFail = { error in fail("Deactivation failed: \(error.localizedDescription)") }
+        OSSystemExtensionManager.shared.submitRequest(deactivate)
+        RunLoop.main.run()
     }
 
     private static func listProfiles() {
